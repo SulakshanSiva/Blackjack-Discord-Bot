@@ -1,5 +1,11 @@
 import discord
 from discord.ext import commands
+import os
+from dotenv import load_dotenv 
+
+load_dotenv('.env')
+
+token = os.getenv('TUTORIAL_BOT_TOKEN')
 
 bot = commands.Bot(command_prefix = "!", intents=discord.Intents.all())
 
@@ -12,7 +18,7 @@ async def ping(ctx):
     await ctx.reply("Hi")
 
 
-bot.run("MTA1Njk5ODk5Mjg4NzY5MzQwMw.GQOU5u.fxagf2FxwfqCCNNy19AtN-g_TElRcV11l8f6M0")
+bot.run(token)
 
 
 
