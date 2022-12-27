@@ -57,9 +57,14 @@ async def rules(ctx):
 
 @bot.command()
 async def help(ctx):
-    paragraph = "hi"
+    commandOne = "!rules - Displays the rules of the game and how to play\n"
+    commandTwo = "!profile - Displays the player profile\n"
+    commandThree = "!TODO - TODO\n"
+
     embed = discord.Embed(
-        title="Help", description="Command List", colour=discord.Colour.purple())
+        title="Help", colour=discord.Colour.purple())
+    embed.add_field(
+        name="Commands", value=f"{commandOne}{commandTwo}{commandThree}", inline=False)
 
     await ctx.send(embed=embed)
 
