@@ -37,14 +37,45 @@ async def get_stats(user):
         if data is None: 
             await create_stats(user)
             return 0, 100, 500
-        coins, win, loss = data[0], data[1], data[2]
-        return coins, win, loss 
+        coins, wins, loss = data[0], data[1], data[2]
+        return coins, wins, loss 
+
+
+async def update_coins(user, amount: int):
+    async with bot.db.cursor() as cursor:
+        await cursor.execute('SELECT coins FROM bank WHERE user = ?', (user.id,))
+        data = await cursor.fetchone()
+        if data is None:
+            await create_stats(user)
+            return 0
+        await cursor.execute("UPDATE bank SET coins = ? WHERE user = ?", (data[0] + amount), user.id)
+    await bot.db.commit()
+    
+async def update_wins(user, amount: int):
+    async with bot.db.cursor() as cursor:
+        await cursor.execute('SELECT wins FROM bank WHERE user = ?', (user.id,))
+        data = await cursor.fetchone()
+        if data is None:
+            await create_stats(user)
+            return 0
+        await cursor.execute("UPDATE bank SET wins = ? WHERE user = ?", (data[1] + amount), user.id)
+    await bot.db.commit()
+
+async def update_loss(user, amount: int):
+    async with bot.db.cursor() as cursor:
+        await cursor.execute('SELECT loss FROM bank WHERE user = ?', (user.id,))
+        data = await cursor.fetchone()
+        if data is None:
+            await create_stats(user)
+            return 0
+        await cursor.execute("UPDATE bank SET loss = ? WHERE user = ?", (data[2] + amount), user.id)
+    await bot.db.commit()
 
 @bot.command()
 async def profile(ctx, member:discord.Member = None):
     if member == None:  
         member = ctx.author
-    coins, win, loss = await get_stats(member)
+    coins, wins, loss = await get_stats(member)
 
     name = member.display_name
     pfp = member.display_avatar
@@ -53,7 +84,7 @@ async def profile(ctx, member:discord.Member = None):
     embed.set_author(name=f"{name}")
     embed.set_thumbnail(url=f"{pfp}")
     embed.add_field(name="Coins", value=coins, inline=False)
-    embed.add_field(name="Wins", value=win, inline=True)
+    embed.add_field(name="Wins", value=wins, inline=True)
     embed.add_field(name="Losses", value=loss, inline=True)
 
     await ctx.send(embed=embed)
