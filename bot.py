@@ -2,6 +2,9 @@ import discord
 from discord.ext import commands
 import os
 from dotenv import load_dotenv 
+import asyncio
+import aiosqlite
+
 
 load_dotenv('.env')
 
@@ -11,15 +14,37 @@ bot = commands.Bot(command_prefix = "!", intents=discord.Intents.all())
 
 bot.remove_command('help')
 
-
 @bot.event
 async def on_ready():
     print("Bot is online")
+    bot.db = await aiosqlite.connect("bank.db")
+    await asyncio.sleep(3)
+    async with bot.db.cursor() as cursor:
+        await cursor.execute("CREATE TABLE IF NOT EXISTS bank(coins INTEGER, wins INTEGER, loss INTEGER, user INTEGER)")
+    await bot.db.commit()
+    print("Database ready!")
+
+async def create_stats(user):
+    async with bot.db.cursor() as cursor:
+        await cursor.execute("INSERT INTO bank VALUES(?, ?, ?, ?)", (100, 0, 0, user.id))
+    await bot.db.commit()
+    return 
+
+async def get_stats(user):
+    async with bot.db.cursor() as cursor:
+        await cursor.execute('SELECT coins, wins, loss FROM bank WHERE user = ?', (user.id,))
+        data = await cursor.fetchone()
+        if data is None: 
+            await create_stats(user)
+            return 0, 100, 500
+        coins, win, loss = data[0], data[1], data[2]
+        return coins, win, loss 
 
 @bot.command()
 async def profile(ctx, member:discord.Member = None):
     if member == None:  
         member = ctx.author
+    coins, win, loss = await get_stats(member)
 
     name = member.display_name
     pfp = member.display_avatar
@@ -27,9 +52,9 @@ async def profile(ctx, member:discord.Member = None):
     embed = discord.Embed(title="Profile", description="Player Stats", colour=discord.Colour.random())
     embed.set_author(name=f"{name}")
     embed.set_thumbnail(url=f"{pfp}")
-    embed.add_field(name="Coins", value="test", inline=False)
-    embed.add_field(name="Wins", value="test", inline=True)
-    embed.add_field(name="Losses", value="test", inline=True)
+    embed.add_field(name="Coins", value=coins, inline=False)
+    embed.add_field(name="Wins", value=win, inline=True)
+    embed.add_field(name="Losses", value=loss, inline=True)
 
     await ctx.send(embed=embed)
 
@@ -52,7 +77,6 @@ async def rules(ctx):
     embed.add_field(name="Win Conditions",
                     value=f"{winOne}{winTwo}{winThree}{winFour}{winFive}", inline=False)
     
-
     await ctx.send(embed=embed)
 
 @bot.command()
@@ -68,7 +92,9 @@ async def help(ctx):
 
     await ctx.send(embed=embed)
 
+
 bot.run(token)
+asyncio.run(bot.db.close())
 
 
 
