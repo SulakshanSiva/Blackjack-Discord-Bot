@@ -7,6 +7,24 @@ import aiosqlite
 import random
 import pydealer
 
+blackjack_vals = {
+    "values": {
+        "King": 10,
+        "Queen": 10,
+        "Jack": 10,
+        "10": 10,
+        "9": 9,
+        "8": 8,
+        "7": 7,
+        "6": 6,
+        "5": 5,
+        "4": 4,
+        "3": 3,
+        "2": 2,
+        "Ace": 1
+    }
+}
+
 load_dotenv('.env')
 
 token = os.getenv('TUTORIAL_BOT_TOKEN')
@@ -14,6 +32,11 @@ token = os.getenv('TUTORIAL_BOT_TOKEN')
 bot = commands.Bot(command_prefix = "!", intents=discord.Intents.all())
 
 bot.remove_command('help')
+
+bot.gameState = False
+bot.deck = pydealer.Deck(rebuild=True, re_shuffle=True)
+bot.dealer = pydealer.Stack()
+bot.player = pydealer.Stack()
 
 @bot.event
 async def on_ready():
@@ -40,7 +63,6 @@ async def get_stats(user):
             return 0, 100, 500
         coins, wins, loss = data[0], data[1], data[2]
         return coins, wins, loss 
-
 
 async def update_coins(user, amount: int):
     async with bot.db.cursor() as cursor:
@@ -84,15 +106,115 @@ async def bet(ctx: commands.context, amount):
         return await ctx.send("You do not have enough coins to place that bet!")
     else:
         #play game
-        deck = pydealer.Deck(rebuild=True, re_shuffle=True)
-        deck.shuffle()
-        dealer = pydealer.Stack()
-        user = pydealer.Stack()
-        dealer += deck.deal(2)
-        user += deck.deal(2)
-        return await ctx.send(f"{dealer[0]}, {dealer[1]}, This is your hand: {user[0]}, {user[1]}.\n Would you like to hit or stand?")
+        bot.gameState = True
+        bot.deck = pydealer.Deck(rebuild=True, re_shuffle=True)
+        bot.deck.shuffle()
+        bot.dealer += bot.deck.deal(2)
+        bot.player += bot.deck.deal(2)
+        userHand = ""
+        for card in bot.player:
+            userHand += str(card) + ", "
+        await ctx.send(f"This is your hand: {userHand}.\n Would you like to hit or stand?")
 
+@bot.command()
+@commands.cooldown(1, 3, commands.BucketType.user)
+async def hit(ctx: commands.context):
+    if bot.gameState == False:
+        await ctx.send("You have not placed a bet yet!")
+    else:
+        bot.player += bot.deck.deal(1)
+        userHand = ""
+        for x in bot.player:
+            userHand += str(x) + ", "
+        await calcHandForHit(ctx)
+        if(bot.gameState == False):
+            bot.player.empty()
+            bot.dealer.empty()
+        else:
+            await ctx.send(f"This is your hand: {userHand}.\n Would you like to hit or stand?")
+        
+@bot.command()
+@commands.cooldown(1, 3, commands.BucketType.user)
+async def stand(ctx: commands.context):
+    if bot.gameState == False:
+        return await ctx.send("You have not placed a bet yet!")
+    else:
+        await calcHandForStand(ctx)
+        if bot.gameState == False:
+            bot.player.empty()
+            bot.dealer.empty()
+        else: 
+            return
+        
+async def calcHandForHit(ctx: commands.context):
+    #sort hands
+    bot.player.sort(blackjack_vals)
+    bot.dealer.sort(blackjack_vals)
 
+    totalP = 0
+    totalD = 0
+
+    for card in bot.player:
+        if card.value != "Ace":
+            totalP += blackjack_vals["values"][card.value]
+        else:
+            temp = totalP + 11
+            if temp <= 21:
+                totalP = temp
+            else:
+                totalP += 1
+                
+    for card in bot.dealer:
+        if card.value != "Ace":
+            totalD += blackjack_vals["values"][card.value]
+        else:
+            temp = totalD + 11
+            if temp <= 21:
+                totalD = temp
+            else:
+                totalD += 1
+    
+    if(totalP > 21):
+        bot.gameState = False
+        await ctx.send("Bust! You have lost")
+    else: 
+        return
+
+async def calcHandForStand(ctx: commands.context):
+    # sort hands
+    bot.player.sort(blackjack_vals)
+    bot.dealer.sort(blackjack_vals)
+
+    totalP = 0
+    totalD = 0
+
+    for card in bot.player:
+        if card.value != "Ace":
+            totalP += blackjack_vals["values"][card.value]
+        else:
+            temp = totalP + 11
+            if temp <= 21:
+                totalP = temp
+            else:
+                totalP += 1
+
+    for card in bot.dealer:
+        if card.value != "Ace":
+            totalD += blackjack_vals["values"][card.value]
+        else:
+            temp = totalD + 11
+            if temp <= 21:
+                totalD = temp
+            else:
+                totalD += 1
+    
+    if(totalP > totalD):
+        bot.gameState = False
+        await ctx.send("You have won!")
+    else:
+        bot.gameState= False
+        await ctx.send("You have lost!")
+    
 @bot.command()
 async def profile(ctx, member:discord.Member = None):
     if member == None:  
