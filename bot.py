@@ -4,7 +4,8 @@ import os
 from dotenv import load_dotenv 
 import asyncio
 import aiosqlite
-
+import random
+import pydealer
 
 load_dotenv('.env')
 
@@ -70,6 +71,27 @@ async def update_loss(user, amount: int):
             return 0
         await cursor.execute("UPDATE bank SET loss = ? WHERE user = ?", (data[2] + amount), user.id)
     await bot.db.commit()
+
+@bot.command()
+@commands.cooldown(1, 3, commands.BucketType.user)
+async def bet(ctx: commands.context, amount):
+    coins, wins, loss = await get_stats(ctx.author)
+    try:
+        amount = int(amount)
+    except ValueError:
+            pass
+    if amount > coins:
+        return await ctx.send("You do not have enough coins to place that bet!")
+    else:
+        #play game
+        deck = pydealer.Deck(rebuild=True, re_shuffle=True)
+        deck.shuffle()
+        dealer = pydealer.Stack()
+        user = pydealer.Stack()
+        dealer += deck.deal(2)
+        user += deck.deal(2)
+        return await ctx.send(f"{dealer[0]}, {dealer[1]}, This is your hand: {user[0]}, {user[1]}.\n Would you like to hit or stand?")
+
 
 @bot.command()
 async def profile(ctx, member:discord.Member = None):
