@@ -37,6 +37,7 @@ bot.gameState = False
 bot.deck = pydealer.Deck(rebuild=True, re_shuffle=True)
 bot.dealer = pydealer.Stack()
 bot.player = pydealer.Stack()
+bot.money = 0
 
 @bot.event
 async def on_ready():
@@ -65,33 +66,36 @@ async def get_stats(user):
         return coins, wins, loss 
 
 async def update_coins(user, amount: int):
+    coins, wins, loss = await get_stats(user)
     async with bot.db.cursor() as cursor:
         await cursor.execute('SELECT coins FROM bank WHERE user = ?', (user.id,))
         data = await cursor.fetchone()
         if data is None:
             await create_stats(user)
             return 0
-        await cursor.execute("UPDATE bank SET coins = ? WHERE user = ?", (data[0] + amount), user.id)
+        await cursor.execute("UPDATE bank SET coins = ? WHERE user = ?", (coins + amount, user.id))
     await bot.db.commit()
     
 async def update_wins(user, amount: int):
+    coins, wins, loss = await get_stats(user)
     async with bot.db.cursor() as cursor:
         await cursor.execute('SELECT wins FROM bank WHERE user = ?', (user.id,))
         data = await cursor.fetchone()
         if data is None:
             await create_stats(user)
             return 0
-        await cursor.execute("UPDATE bank SET wins = ? WHERE user = ?", (data[1] + amount), user.id)
+        await cursor.execute("UPDATE bank SET wins = ? WHERE user = ?", (wins + amount, user.id))
     await bot.db.commit()
 
 async def update_loss(user, amount: int):
+    coins, wins, loss = await get_stats(user)
     async with bot.db.cursor() as cursor:
         await cursor.execute('SELECT loss FROM bank WHERE user = ?', (user.id,))
         data = await cursor.fetchone()
         if data is None:
             await create_stats(user)
             return 0
-        await cursor.execute("UPDATE bank SET loss = ? WHERE user = ?", (data[2] + amount), user.id)
+        await cursor.execute("UPDATE bank SET loss = ? WHERE user = ?", (loss + amount, user.id))
     await bot.db.commit()
 
 @bot.command()
@@ -105,6 +109,7 @@ async def bet(ctx: commands.context, amount):
     if amount > coins:
         return await ctx.send("You do not have enough coins to place that bet!")
     else:
+        bot.money = amount
         #play game
         bot.gameState = True
         bot.deck = pydealer.Deck(rebuild=True, re_shuffle=True)
@@ -113,40 +118,44 @@ async def bet(ctx: commands.context, amount):
         bot.player += bot.deck.deal(2)
         userHand = ""
         for card in bot.player:
-            userHand += str(card) + ", "
-        await ctx.send(f"This is your hand: {userHand}.\n Would you like to hit or stand?")
+            userHand += str(card) + " | "
+        await ctx.send(f"This is your hand: {userHand}\n Would you like to hit or stand?")
 
 @bot.command()
 @commands.cooldown(1, 3, commands.BucketType.user)
-async def hit(ctx: commands.context):
+async def hit(ctx: commands.context, member: discord.Member = None):
+    if member == None:
+        member = ctx.author
     if bot.gameState == False:
         await ctx.send("You have not placed a bet yet!")
     else:
         bot.player += bot.deck.deal(1)
         userHand = ""
         for x in bot.player:
-            userHand += str(x) + ", "
-        await calcHandForHit(ctx)
+            userHand += str(x) + " | "
+        await calcHandForHit(ctx, member)
         if(bot.gameState == False):
             bot.player.empty()
             bot.dealer.empty()
         else:
-            await ctx.send(f"This is your hand: {userHand}.\n Would you like to hit or stand?")
+            await ctx.send(f"This is your hand: {userHand}\n Would you like to hit or stand?")
         
 @bot.command()
 @commands.cooldown(1, 3, commands.BucketType.user)
-async def stand(ctx: commands.context):
+async def stand(ctx: commands.context, member: discord.Member = None):
+    if member == None:
+        member = ctx.author
     if bot.gameState == False:
         return await ctx.send("You have not placed a bet yet!")
     else:
-        await calcHandForStand(ctx)
+        await calcHandForStand(ctx, member)
         if bot.gameState == False:
             bot.player.empty()
             bot.dealer.empty()
         else: 
             return
         
-async def calcHandForHit(ctx: commands.context):
+async def calcHandForHit(ctx: commands.context, user):
     #sort hands
     bot.player.sort(blackjack_vals)
     bot.dealer.sort(blackjack_vals)
@@ -176,11 +185,14 @@ async def calcHandForHit(ctx: commands.context):
     
     if(totalP > 21):
         bot.gameState = False
+        await update_coins(user, (bot.money * -1))
+        bot.money = 0
         await ctx.send("Bust! You have lost")
+        await update_loss(user, 1)
     else: 
         return
 
-async def calcHandForStand(ctx: commands.context):
+async def calcHandForStand(ctx: commands.context, user):
     # sort hands
     bot.player.sort(blackjack_vals)
     bot.dealer.sort(blackjack_vals)
@@ -210,10 +222,17 @@ async def calcHandForStand(ctx: commands.context):
     
     if(totalP > totalD):
         bot.gameState = False
+        await update_coins(user, (bot.money * 2))
+        bot.money = 0
         await ctx.send("You have won!")
+        await update_wins(user, 1)
     else:
         bot.gameState= False
+        await update_coins(user, (bot.money * -1))
+        bot.money = 0
         await ctx.send("You have lost!")
+        await update_loss(user, 1)
+
     
 @bot.command()
 async def profile(ctx, member:discord.Member = None):
