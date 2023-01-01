@@ -61,7 +61,7 @@ async def get_stats(user):
         data = await cursor.fetchone()
         if data is None: 
             await create_stats(user)
-            return 0, 100, 500
+            return 100, 0, 0
         coins, wins, loss = data[0], data[1], data[2]
         return coins, wins, loss 
 
