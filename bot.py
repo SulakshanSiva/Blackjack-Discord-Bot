@@ -119,7 +119,7 @@ async def bet(ctx: commands.context, amount):
         userHand = ""
         for card in bot.player:
             userHand += str(card) + " | "
-        await ctx.send(f"This is your hand: {userHand}\n Would you like to hit or stand?")
+        await ctx.send(f"Dealer's Hand: | {bot.dealer[0]} |\nThis is your hand: {userHand}\n Would you like to hit or stand?")
 
 @bot.command()
 @commands.cooldown(1, 3, commands.BucketType.user)
