@@ -185,9 +185,9 @@ async def calcHandForHit(ctx: commands.context, user):
     
     if(totalP > 21):
         bot.gameState = False
+        await ctx.send(f"Bust! You have lost. ${bot.money} has been deducted from your account.")
         await update_coins(user, (bot.money * -1))
         bot.money = 0
-        await ctx.send("Bust! You have lost")
         await update_loss(user, 1)
     else: 
         return
@@ -222,15 +222,15 @@ async def calcHandForStand(ctx: commands.context, user):
     
     if(totalP > totalD):
         bot.gameState = False
+        await ctx.send(f"You have won! ${bot.money * 2} has been added to your account.")
         await update_coins(user, (bot.money * 2))
         bot.money = 0
-        await ctx.send("You have won!")
         await update_wins(user, 1)
     else:
         bot.gameState= False
+        await ctx.send(f"You have lost! ${bot.money} has been deducted from your account.")
         await update_coins(user, (bot.money * -1))
         bot.money = 0
-        await ctx.send("You have lost!")
         await update_loss(user, 1)
 
     
@@ -256,7 +256,7 @@ async def profile(ctx, member:discord.Member = None):
 async def rules(ctx):
     lineOne = "This game will be you against a dealer. The goal of the game is to have a hand that totals higher than the dealer's, but doesn't total to higher than 21.\n"
     lineTwo = "You and the dealer will start off with 2 cards each. You can stay with your hand or recieve a card, called a hit.\n"
-    lineThree = "To start the game use the following command: TODO\n"
+    lineThree = "To start the game use the following command: !bet {amount} (ex. !bet 50)\n"
     lineFour = "Odds are x2.\n"
     winOne = "If your total or the dealer's total is higher than 21, you have 'bust' which is an automatic loss.\n"
     winTwo = "If your total is higher then the dealer's, you have won.\n"
@@ -277,12 +277,14 @@ async def rules(ctx):
 async def help(ctx):
     commandOne = "!rules - Displays the rules of the game and how to play\n"
     commandTwo = "!profile - Displays the player profile\n"
-    commandThree = "!TODO - TODO\n"
+    commandThree = "!bet {amount} - Starts a game of Blackjack with the amount entered as the bet.\n"
+    commandFour = "!hit - User receives another card in their hand. Used while in a game of Blackjack.\n"
+    commandFive = "!stand - User ends the game and compares their hand with the dealers. Used while in a game of Blackjack.\n"
 
     embed = discord.Embed(
         title="Help", colour=discord.Colour.purple())
     embed.add_field(
-        name="Commands", value=f"{commandOne}{commandTwo}{commandThree}", inline=False)
+        name="Commands", value=f"{commandOne}{commandTwo}{commandThree}{commandFour}{commandFive}", inline=False)
 
     await ctx.send(embed=embed)
 
